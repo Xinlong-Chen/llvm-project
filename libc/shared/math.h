@@ -99,6 +99,7 @@
 #include "math/fminf.h"
 #include "math/fminf128.h"
 #include "math/fminf16.h"
+#include "math/fminl.h"
 #include "math/fmax.h"
 #include "math/fmaxbf16.h"
 #include "math/fmaxf.h"

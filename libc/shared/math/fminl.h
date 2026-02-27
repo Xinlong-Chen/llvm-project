@@ -1,4 +1,4 @@
-//===-- Implementation of fminl function ----------------------------------===//
+//===-- Shared fminl function -----------------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,13 +6,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/math/fminl.h"
+#ifndef LLVM_LIBC_SHARED_MATH_FMINL_H
+#define LLVM_LIBC_SHARED_MATH_FMINL_H
+
+#include "shared/libc_common.h"
 #include "src/__support/math/fminl.h"
 
 namespace LIBC_NAMESPACE_DECL {
+namespace shared {
 
-LLVM_LIBC_FUNCTION(long double, fminl, (long double x, long double y)) {
-  return math::fminl(x, y);
-}
+using math::fminl;
 
+} // namespace shared
 } // namespace LIBC_NAMESPACE_DECL
+
+#endif // LLVM_LIBC_SHARED_MATH_FMINL_H

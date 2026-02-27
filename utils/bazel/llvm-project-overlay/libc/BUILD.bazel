@@ -3311,6 +3311,16 @@ libc_support_library(
 )
 
 libc_support_library(
+    name = "__support_math_fminl",
+    hdrs = ["src/__support/math/fminl.h"],
+    deps = [
+        ":__support_common",
+        ":__support_fputil_basic_operations",
+        ":__support_macros_config",
+    ],
+)
+
+libc_support_library(
     name = "__support_math_frexpf128",
     hdrs = ["src/__support/math/frexpf128.h"],
     deps = [
@@ -5366,7 +5376,10 @@ libc_math_function(
     additional_deps = [":__support_math_fminf"],
 )
 
-libc_math_function(name = "fminl")
+libc_math_function(
+    name = "fminl",
+    additional_deps = [":__support_math_fminl"],
+)
 
 libc_math_function(
     name = "fminf128",

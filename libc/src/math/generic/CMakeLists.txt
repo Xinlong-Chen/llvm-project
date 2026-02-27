@@ -2114,7 +2114,7 @@ add_entrypoint_object(
   HDRS
     ../fminl.h
   DEPENDS
-    libc.src.__support.FPUtil.basic_operations
+    libc.src.__support.math.fminl
 )
 
 add_entrypoint_object(
