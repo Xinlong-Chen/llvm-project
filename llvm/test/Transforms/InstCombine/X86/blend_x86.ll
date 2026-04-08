@@ -426,6 +426,56 @@ define <8 x float> @blendvps_demanded_msb_multiuse(<8 x float> %a, <8 x float> %
   ret <8 x float> %r
 }
 
+; SimplifyDemandedBits peeks through bitcast: the 'or' only sets non-sign bits,
+; blendv only cares about the sign bit, so the 'or' should be eliminated.
+define <4 x float> @blendvps_demanded_through_bitcast(<4 x float> %a, <4 x float> %b, <4 x i32> %m) {
+; CHECK-LABEL: @blendvps_demanded_through_bitcast(
+; CHECK-NEXT:    [[MASK:%.*]] = bitcast <4 x i32> [[M:%.*]] to <4 x float>
+; CHECK-NEXT:    [[R:%.*]] = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> [[A:%.*]], <4 x float> [[B:%.*]], <4 x float> [[MASK]])
+; CHECK-NEXT:    ret <4 x float> [[R]]
+;
+  %or = or <4 x i32> %m, splat (i32 42)
+  %mask = bitcast <4 x i32> %or to <4 x float>
+  %r = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %a, <4 x float> %b, <4 x float> %mask)
+  ret <4 x float> %r
+}
+
+define <2 x double> @blendvpd_demanded_through_bitcast(<2 x double> %a, <2 x double> %b, <2 x i64> %m) {
+; CHECK-LABEL: @blendvpd_demanded_through_bitcast(
+; CHECK-NEXT:    [[MASK:%.*]] = bitcast <2 x i64> [[M:%.*]] to <2 x double>
+; CHECK-NEXT:    [[R:%.*]] = call <2 x double> @llvm.x86.sse41.blendvpd(<2 x double> [[A:%.*]], <2 x double> [[B:%.*]], <2 x double> [[MASK]])
+; CHECK-NEXT:    ret <2 x double> [[R]]
+;
+  %or = or <2 x i64> %m, splat (i64 42)
+  %mask = bitcast <2 x i64> %or to <2 x double>
+  %r = call <2 x double> @llvm.x86.sse41.blendvpd(<2 x double> %a, <2 x double> %b, <2 x double> %mask)
+  ret <2 x double> %r
+}
+
+; Non-bitcast FP mask instruction hitting the default case: should not crash.
+define <4 x float> @blendvps_fp_mask_default_case(<4 x float> %a, <4 x float> %b, <4 x float> %m1, <4 x float> %m2) {
+; CHECK-LABEL: @blendvps_fp_mask_default_case(
+; CHECK-NEXT:    [[MASK:%.*]] = fadd <4 x float> [[M1:%.*]], [[M2:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> [[A:%.*]], <4 x float> [[B:%.*]], <4 x float> [[MASK]])
+; CHECK-NEXT:    ret <4 x float> [[R]]
+;
+  %mask = fadd <4 x float> %m1, %m2
+  %r = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %a, <4 x float> %b, <4 x float> %mask)
+  ret <4 x float> %r
+}
+
+; FP load as blendv mask: should not crash (exercises default case for FP).
+define <4 x float> @blendvps_fp_load_mask(<4 x float> %a, <4 x float> %b, ptr %mp) {
+; CHECK-LABEL: @blendvps_fp_load_mask(
+; CHECK-NEXT:    [[MASK:%.*]] = load <4 x float>, ptr [[MP:%.*]], align 16
+; CHECK-NEXT:    [[R:%.*]] = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> [[A:%.*]], <4 x float> [[B:%.*]], <4 x float> [[MASK]])
+; CHECK-NEXT:    ret <4 x float> [[R]]
+;
+  %mask = load <4 x float>, ptr %mp
+  %r = call <4 x float> @llvm.x86.sse41.blendvps(<4 x float> %a, <4 x float> %b, <4 x float> %mask)
+  ret <4 x float> %r
+}
+
 declare <16 x i8> @llvm.x86.sse41.pblendvb(<16 x i8>, <16 x i8>, <16 x i8>)
 declare <4 x float> @llvm.x86.sse41.blendvps(<4 x float>, <4 x float>, <4 x float>)
 declare <2 x double> @llvm.x86.sse41.blendvpd(<2 x double>, <2 x double>, <2 x double>)

@@ -3097,13 +3097,10 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
 
     Type *SignEltTy = Sign->getType()->getScalarType();
 
-    Value *CastSrc;
-    if (match(Sign,
-              m_OneUse(m_ElementWiseBitCast(m_OneUse(m_Value(CastSrc))))) &&
-        CastSrc->getType()->isIntOrIntVectorTy() &&
+    if (isa<BitCastInst>(Sign) &&
         APFloat::hasSignBitInMSB(SignEltTy->getFltSemantics())) {
       KnownBits Known(SignEltTy->getPrimitiveSizeInBits());
-      if (SimplifyDemandedBits(cast<Instruction>(Sign), 0,
+      if (SimplifyDemandedBits(II, 1,
                                APInt::getSignMask(Known.getBitWidth()), Known,
                                SQ))
         return II;

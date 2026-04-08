@@ -159,9 +159,8 @@ define float @copysign_simplify_demanded_bits_sign_multiple_use_cast(float %mag,
 ; CHECK-LABEL: @copysign_simplify_demanded_bits_sign_multiple_use_cast(
 ; CHECK-NEXT:    [[SIGN_INT:%.*]] = bitcast float [[SIGN:%.*]] to i32
 ; CHECK-NEXT:    [[AND_SIGN:%.*]] = and i32 [[SIGN_INT]], -2147483648
-; CHECK-NEXT:    [[CAST_SIGN:%.*]] = bitcast i32 [[AND_SIGN]] to float
 ; CHECK-NEXT:    store i32 [[AND_SIGN]], ptr [[PTR:%.*]], align 4
-; CHECK-NEXT:    [[RESULT:%.*]] = call float @llvm.copysign.f32(float [[MAG:%.*]], float [[CAST_SIGN]])
+; CHECK-NEXT:    [[RESULT:%.*]] = call float @llvm.copysign.f32(float [[MAG:%.*]], float [[SIGN]])
 ; CHECK-NEXT:    ret float [[RESULT]]
 ;
   %sign.int = bitcast float %sign to i32
@@ -177,8 +176,7 @@ define float @copysign_simplify_demanded_bits_sign_multiple_use_cast_src(float %
 ; CHECK-NEXT:    [[SIGN_INT:%.*]] = bitcast float [[SIGN:%.*]] to i32
 ; CHECK-NEXT:    [[AND_SIGN:%.*]] = and i32 [[SIGN_INT]], -2147483648
 ; CHECK-NEXT:    store i32 [[AND_SIGN]], ptr [[PTR:%.*]], align 4
-; CHECK-NEXT:    [[CAST_SIGN:%.*]] = bitcast i32 [[AND_SIGN]] to float
-; CHECK-NEXT:    [[RESULT:%.*]] = call float @llvm.copysign.f32(float [[MAG:%.*]], float [[CAST_SIGN]])
+; CHECK-NEXT:    [[RESULT:%.*]] = call float @llvm.copysign.f32(float [[MAG:%.*]], float [[SIGN]])
 ; CHECK-NEXT:    ret float [[RESULT]]
 ;
   %sign.int = bitcast float %sign to i32

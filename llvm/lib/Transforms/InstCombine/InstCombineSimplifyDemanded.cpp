@@ -170,8 +170,15 @@ bool InstCombinerImpl::SimplifyDemandedBits(Instruction *I, unsigned OpNo,
                                             unsigned Depth) {
   Use &U = I->getOperandUse(OpNo);
   Value *V = U.get();
+  auto CanUseIntegerDemandedBits = [](Type *Ty) {
+    return Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy();
+  };
+
   if (isa<Constant>(V)) {
-    llvm::computeKnownBits(V, Known, Q, Depth);
+    if (CanUseIntegerDemandedBits(V->getType()))
+      llvm::computeKnownBits(V, Known, Q, Depth);
+    else
+      Known = KnownBits(DemandedMask.getBitWidth());
     return false;
   }
 
@@ -184,7 +191,10 @@ bool InstCombinerImpl::SimplifyDemandedBits(Instruction *I, unsigned OpNo,
 
   Instruction *VInst = dyn_cast<Instruction>(V);
   if (!VInst) {
-    llvm::computeKnownBits(V, Known, Q, Depth);
+    if (CanUseIntegerDemandedBits(V->getType()))
+      llvm::computeKnownBits(V, Known, Q, Depth);
+    else
+      Known = KnownBits(DemandedMask.getBitWidth());
     return false;
   }
 
@@ -281,7 +291,10 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Instruction *I,
 
   switch (I->getOpcode()) {
   default:
-    llvm::computeKnownBits(I, Known, Q, Depth);
+    if (I->getType()->isIntOrIntVectorTy() || I->getType()->isPtrOrPtrVectorTy())
+      llvm::computeKnownBits(I, Known, Q, Depth);
+    else
+      Known.resetAll();
     break;
   case Instruction::And: {
     // If either the LHS or the RHS are Zero, the result is zero.
@@ -560,6 +573,39 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Instruction *I,
     // If the sign bit of the input is known set or clear, then we know the
     // top bits of the result.
     Known = InputKnown.sext(BitWidth);
+    break;
+  }
+  case Instruction::BitCast: {
+    Type *SrcTy = I->getOperand(0)->getType();
+    Type *DstTy = I->getType();
+    const bool SrcIsIntegral =
+        SrcTy->isIntOrIntVectorTy() || SrcTy->isPtrOrPtrVectorTy();
+    const bool DstIsIntegral =
+        DstTy->isIntOrIntVectorTy() || DstTy->isPtrOrPtrVectorTy();
+
+    // Forward DemandedMask through the bitcast when per-element bit widths
+    // match (e.g. i32<->float, <4xi32><-><4xfloat>, <1xi64><->i64).
+    // Reject scalable vectors and mismatched scalar widths like i64<-><2xi32>.
+    if (isa<ScalableVectorType>(SrcTy) || isa<ScalableVectorType>(DstTy) ||
+        SrcTy->getScalarSizeInBits() != BitWidth) {
+      if (DstIsIntegral)
+        llvm::computeKnownBits(I, Known, Q, Depth);
+      else
+        Known.resetAll();
+      break;
+    }
+
+    if (SrcIsIntegral) {
+      if (SimplifyDemandedBits(I, 0, DemandedMask, Known, Q, Depth + 1))
+        return I;
+    }
+
+    if (DstIsIntegral)
+      llvm::computeKnownBits(I, Known, Q, Depth);
+    else if (SrcIsIntegral)
+      llvm::computeKnownBits(I->getOperand(0), Known, Q, Depth + 1);
+    else
+      Known.resetAll();
     break;
   }
   case Instruction::Add: {
@@ -1366,15 +1412,33 @@ Value *InstCombinerImpl::SimplifyMultipleUseDemandedBits(
 
     break;
   }
-  default:
-    // Compute the Known bits to simplify things downstream.
-    llvm::computeKnownBits(I, Known, Q, Depth);
+  case Instruction::BitCast: {
+    Type *SrcTy = I->getOperand(0)->getType();
+    bool SrcIsIntegral =
+        SrcTy->isIntOrIntVectorTy() || SrcTy->isPtrOrPtrVectorTy();
+    bool DstIsIntegral =
+        ITy->isIntOrIntVectorTy() || ITy->isPtrOrPtrVectorTy();
 
-    // If this user is only demanding bits that we know, return the known
-    // constant.
-    if (DemandedMask.isSubsetOf(Known.Zero|Known.One))
+    if (!isa<ScalableVectorType>(SrcTy) && !isa<ScalableVectorType>(ITy) &&
+        SrcTy->getScalarSizeInBits() == BitWidth && SrcIsIntegral)
+      llvm::computeKnownBits(I->getOperand(0), Known, Q, Depth + 1);
+    else if (DstIsIntegral)
+      llvm::computeKnownBits(I, Known, Q, Depth);
+    else
+      Known.resetAll();
+
+    if (DstIsIntegral && DemandedMask.isSubsetOf(Known.Zero | Known.One))
       return Constant::getIntegerValue(ITy, Known.One);
-
+    break;
+  }
+  default:
+    if (ITy->isIntOrIntVectorTy() || ITy->isPtrOrPtrVectorTy()) {
+      llvm::computeKnownBits(I, Known, Q, Depth);
+      if (DemandedMask.isSubsetOf(Known.Zero | Known.One))
+        return Constant::getIntegerValue(ITy, Known.One);
+    } else {
+      Known.resetAll();
+    }
     break;
   }
 
